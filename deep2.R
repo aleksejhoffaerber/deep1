@@ -20,7 +20,7 @@ library(darch)        # same, but pure R code (slow)
 library(h2o)          # java-based, fast
 
 
-install.packages(c("parallel", "foreach", "doSNOW"))
+# install.packages(c("parallel", "foreach", "doSNOW"))
 
 library(parallel)
 library(foreach)
@@ -30,6 +30,8 @@ library(doSNOW)
 
 us.train.x <- read.table("data/UCI HAR Dataset/train/X_train.txt")
 us.train.y <- read.table("data/UCI HAR Dataset/train/y_train.txt")[[1]]
+# [[1]] needed so that we get a sole vector (as we read only one col)
+# important for the expected data model of RSNNS
 
 us.test.x <- read.table("data/UCI HAR Dataset/test/X_test.txt")
 us.test.y <- read.table("data/UCI HAR Dataset/test/y_test.txt")[[1]]
@@ -87,7 +89,7 @@ us.models <- foreach(i = 1:5, .combine = "c") %dopar% {
 }
 
 clusterExport(c2, "us.models")
-use.yhat <- foreach(i = 1:5, .combine = "c") %dopar% {
+us.yhat <- foreach(i = 1:5, .combine = "c") %dopar% {
   list(list(
     Insample = encodeClassLabels(fitted.values(us.models[[i]])), # Insample as list name, fitted.values to access insample fits
     Outsample = encodeClassLabels(predict(us.models[[i]], # predict for actual test predicitons
@@ -97,8 +99,11 @@ use.yhat <- foreach(i = 1:5, .combine = "c") %dopar% {
 
 # INSAMPLE PERFORMANCE
 us.insample <- cbind(Y = us.train.y,
-                     do.call(cbind.data.frame, lapply(use.yhat, `[[`, "Insample")))
+                     do.call(cbind.data.frame, lapply(us.yhat, `[[`, "Insample"))) 
+# `[[` needed to access the specifically named list
+
 colnames(us.insample) <- c("Y", paste0("Yhat", 1:5))
+
 
 # difference between substitute and quote
 # expr <- substitute(x + y, list(x = 1))
@@ -106,11 +111,14 @@ colnames(us.insample) <- c("Y", paste0("Yhat", 1:5))
 # eval(expr, list(y = 2)) # 3
 
 
-performance.insample <- do.call(rbind, lapply(1:5, funcion(i) {
-  f <- substitute(~ Y + x, list(x = as.name(paste0("Yhat", i)))) # create the expression "~Y + Yhat1 ....
+performance.insample <- do.call(rbind, lapply(1:5, function(i) { # rbind because I want to have the models below each other 
   us.dat <- us.insample[us.insample[,paste0("Yhat", i)] != 0, ] # needed to throw out the zeros as those are uncertain predictions
   us.dat$Y <- factor(us.dat$Y, levels = 1:6) # to factor
   us.dat[, paste0("Yhat", i)] <- factor(us.dat[, paste0("Yhat", i)], levels = 1:6) # factor
+  f <- substitute(~ Y + x, list(x = as.name(paste0("Yhat", i)))) 
+  # create the expression "~Y + Yhat1 .... needed for the confusionMatrix later
+  # as.name needed for the substitute function
+  
   res <- caret::confusionMatrix(xtabs(f, data = us.dat)) 
   
   cbind(Size = tuning$size[[i]],
@@ -120,4 +128,29 @@ performance.insample <- do.call(rbind, lapply(1:5, funcion(i) {
   # access acc information with [c()], transpose
 }))
 
+
+
 # OUTSAMPLE PERFORMANCE
+
+us.outsample <- cbind(Y = us.test.y,
+                      do.call(cbind.data.frame, lapply(us.yhat, `[[`, "Outsample")))
+colnames(us.outsample) <- c("Y", paste0("Yhat", 1:5))
+
+
+performance.outsample <- do.call(rbind, lapply(1:5, function(i) { # rbind because I want to have the models below each other 
+  us.dat <- us.outsample[us.outsample[,paste0("Yhat", i)] != 0, ] # needed to throw out the zeros as those are uncertain predictions
+  us.dat$Y <- factor(us.dat$Y, levels = 1:6) # to factor
+  us.dat[, paste0("Yhat", i)] <- factor(us.dat[, paste0("Yhat", i)], levels = 1:6) # factor
+  f <- substitute(~ Y + x, list(x = as.name(paste0("Yhat", i)))) 
+  # create the expression "~Y + Yhat1 .... needed for the confusionMatrix later
+  # as.name needed for the substitute function
+  
+  res <- caret::confusionMatrix(xtabs(f, data = us.dat)) 
+  
+  cbind(Size = tuning$size[[i]],
+        Maxit = tuning$maxit[[i]],
+        Shuffle = tuning$shuffle[[i]],
+        as.data.frame(t(res$overall[c("AccuracyNull", "Accuracy", "AccuracyLower", "AccuracyUpper")]))) 
+  # access acc information with [c()], transpose
+}))
+
