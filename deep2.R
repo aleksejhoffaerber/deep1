@@ -154,3 +154,10 @@ performance.outsample <- do.call(rbind, lapply(1:5, function(i) { # rbind becaus
   # access acc information with [c()], transpose
 }))
 
+# Next Steps:
+
+# 1) compare to RF and XGBoost Model Performance (worth it?)
+# 2) look at other UCI datasets to predict user behavior 
+# 3) introduce shap values 
+# 4) combine features with PCA - NN approach
+
