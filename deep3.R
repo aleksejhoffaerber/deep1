@@ -64,24 +64,29 @@ digits.decay.m1 <- lapply(c(100, 150), function(its) {
 digits.decay.m1[[1]] # comparing reg. and non.reg model or 100 iterations
 digits.decay.m1[[2]] # 150 iterations, reg. performed way better
 
-digits.decay.m1[[1]]$modelInfo
+digits.decay.m1[[1]]
 
 # cannot test OOS performance, because no labels in test.csv
-digits.pd1 <- predict(digits.decay.m1[[1]], newdata = digits.test)
-m1.pred <- ggplot(as.data.frame(table(digits.pd1)), aes(x = digits.pd1, y = Freq)) +
+digits.pd1 <- predict(digits.decay.m1[[1]], newdata = digits.test) # automatically uses the best model = besttune (w/0 reg)
+m1.pred <- ggplot(as.data.frame(table(digits.pd1)), 
+                  aes(x = digits.pd1, y = Freq)) +
   geom_bar(stat = "identity") +
-  ggtitle("100 Iterations Model") +
-  scale_y_continuous(limits = c(0,5500), breaks = c(1000, 2000, 3000, 4000, 5000)) + 
+  ggtitle(paste("100 Iterations Model,","Training Accuracy:", round(digits.decay.m1[[1]]$results$Accuracy[1], digits = 3))) +
+  scale_y_continuous(limits = c(0,5500), 
+                     breaks = c(1000, 2000, 3000, 4000, 5000)) + 
   theme_minimal()
   
   
 digits.pd2 <- predict(digits.decay.m1[[2]], newdata = digits.test)
-m2.pred <- ggplot(as.data.frame(table(digits.pd2)), aes(x = digits.pd2, y = Freq)) +
+m2.pred <- ggplot(as.data.frame(table(digits.pd2)), 
+                  aes(x = digits.pd2, y = Freq)) +
   geom_bar(stat = "identity") +
-  ggtitle("150 Iterations Model") +
-  scale_y_continuous(limits = c(0,5500), breaks = c(1000, 2000, 3000, 4000, 5000)) + 
+  ggtitle(paste("150 Iterations Model,","Training Accuracy:", round(digits.decay.m1[[2]]$results$Accuracy[2], digits = 3))) +
+  scale_y_continuous(limits = c(0,5500), 
+                     breaks = c(1000, 2000, 3000, 4000, 5000)) + 
   theme_minimal()
 
 m1.pred / m2.pred
+
 
 
