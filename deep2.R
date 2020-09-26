@@ -46,7 +46,7 @@ tuning <- list(
   size = c(40,20,20,50,50), # hidden neurons
   maxit = c(60,100,100,100,100), # iterations
   shuffle = c(FALSE,FALSE,TRUE,FALSE,FALSE), # changes the order of rows for the selected variables
-  params = list(FALSE, FALSE, FALSE, FALSE, c(0.1, 20, 3))
+  params = list(FALSE, FALSE, FALSE, FALSE, c(0.1, 20, 3)) # 0.1 indicates the weight decay
 )
 
 # cluster setup
@@ -137,21 +137,19 @@ us.outsample <- cbind(Y = us.test.y,
 colnames(us.outsample) <- c("Y", paste0("Yhat", 1:5))
 
 
-performance.outsample <- do.call(rbind, lapply(1:5, function(i) { # rbind because I want to have the models below each other 
-  us.dat <- us.outsample[us.outsample[,paste0("Yhat", i)] != 0, ] # needed to throw out the zeros as those are uncertain predictions
-  us.dat$Y <- factor(us.dat$Y, levels = 1:6) # to factor
-  us.dat[, paste0("Yhat", i)] <- factor(us.dat[, paste0("Yhat", i)], levels = 1:6) # factor
+performance.outsample <- do.call(rbind, lapply(1:5, function(i) { 
+  us.dat <- us.outsample[us.outsample[,paste0("Yhat", i)] != 0, ] 
+  us.dat$Y <- factor(us.dat$Y, levels = 1:6) 
+  us.dat[, paste0("Yhat", i)] <- factor(us.dat[, paste0("Yhat", i)], levels = 1:6) 
   f <- substitute(~ Y + x, list(x = as.name(paste0("Yhat", i)))) 
-  # create the expression "~Y + Yhat1 .... needed for the confusionMatrix later
-  # as.name needed for the substitute function
-  
+
+    
   res <- caret::confusionMatrix(xtabs(f, data = us.dat)) 
   
   cbind(Size = tuning$size[[i]],
         Maxit = tuning$maxit[[i]],
         Shuffle = tuning$shuffle[[i]],
         as.data.frame(t(res$overall[c("AccuracyNull", "Accuracy", "AccuracyLower", "AccuracyUpper")]))) 
-  # access acc information with [c()], transpose
 }))
 
 # Next Steps:

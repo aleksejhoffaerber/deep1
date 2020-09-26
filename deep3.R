@@ -16,7 +16,7 @@ library(neuralnet)    # only one hidden layer, advanced training possibs
 library(RSNNS)        # variety of NN models
 
 library(deepnet)      # DBN and RBM capabilities 
-library(darch)        # same, but pure R code (slow)
+# library(darch)        # same, but pure R code (slow)
 library(h2o)          # java-based, fast
 library(parallel)
 library(doSNOW)
@@ -57,14 +57,14 @@ digits.train <- read.csv("data/train.csv") %>%
   mutate(label = as.factor(label))
 
 i <- 1:5000
-digits.X <- digits.train[i, -1]
+digits.x <- digits.train[i, -1]
 digits.y <- digits.train[i, 1]
 
 c1 <- h2o.init(max_mem_size = "3G", nthreads = 2)
 
 cl <- makeCluster(4)
 clusterEvalQ(cl, {
-  source("checkpoint.R")
+  source("packages.R")
 })
 
 registerDoSNOW(cl)
@@ -72,7 +72,7 @@ registerDoSNOW(cl)
 set.seed(1234)
 
 digits.decay.m1 <- lapply(c(100, 150), function(its) {
-  caret::train(digits.X, digits.y,
+  caret::train(digits.x, digits.y,
         method = "nnet",
         tuneGrid = expand.grid(
           .size = c(10),
