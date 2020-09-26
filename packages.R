@@ -5,6 +5,7 @@ library(e1071)
 library(dplyr)
 library(readr)
 library(skimr)
+library(patchwork) # easy beside plots
 
 library(statmod)
 library(MASS)
@@ -18,5 +19,6 @@ library(RSNNS)        # variety of NN models
 library(deepnet)      # DBN and RBM capabilities 
 # library(darch)        # same, but pure R code (slow)
 library(h2o)          # java-based, fast
+library(doSNOW)
 
 library(glmnet)

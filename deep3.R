@@ -1,27 +1,4 @@
-# Overfitting Prevention
-
-library(RCurl)
-library(jsonlite)
-library(caret)
-library(e1071)
-library(dplyr)
-library(readr)
-library(skimr)
-
-library(statmod)
-library(MASS)
-
-library(nnet)         # only one hidden layer
-library(neuralnet)    # only one hidden layer, advanced training possibs
-library(RSNNS)        # variety of NN models
-
-library(deepnet)      # DBN and RBM capabilities 
-# library(darch)        # same, but pure R code (slow)
-library(h2o)          # java-based, fast
-library(parallel)
-library(doSNOW)
-
-library(glmnet)
+source("packages.R")
 
 # ----- IMPORTANT LESSONS 
 # 1) different regularizations can be used in different layers e.g. to include more parameters
@@ -56,15 +33,17 @@ plot(m.ridge.cv)
 digits.train <- read.csv("data/train.csv") %>% 
   mutate(label = as.factor(label))
 
+digits.test <- read.csv("data/test.csv")
+
 i <- 1:5000
 digits.x <- digits.train[i, -1]
 digits.y <- digits.train[i, 1]
 
 c1 <- h2o.init(max_mem_size = "3G", nthreads = 2)
 
-cl <- makeCluster(4)
+cl <- makeCluster(7)
 clusterEvalQ(cl, {
-  source("packages.R")
+  source("packages.R") # load packages into h2o cluster
 })
 
 registerDoSNOW(cl)
@@ -76,10 +55,33 @@ digits.decay.m1 <- lapply(c(100, 150), function(its) {
         method = "nnet",
         tuneGrid = expand.grid(
           .size = c(10),
-          .decay = c(0, .1)),
+          .decay = c(0, .1)), # weight decay (L2 penalty)
         trControl = trainControl(method = "cv", number = 5, repeats = 1),
         MaxNWts = 10000,
         maxit = its)
 })
+
+digits.decay.m1[[1]] # comparing reg. and non.reg model or 100 iterations
+digits.decay.m1[[2]] # 150 iterations, reg. performed way better
+
+digits.decay.m1[[1]]$modelInfo
+
+# cannot test OOS performance, because no labels in test.csv
+digits.pd1 <- predict(digits.decay.m1[[1]], newdata = digits.test)
+m1.pred <- ggplot(as.data.frame(table(digits.pd1)), aes(x = digits.pd1, y = Freq)) +
+  geom_bar(stat = "identity") +
+  ggtitle("100 Iterations Model") +
+  scale_y_continuous(limits = c(0,5500), breaks = c(1000, 2000, 3000, 4000, 5000)) + 
+  theme_minimal()
+  
+  
+digits.pd2 <- predict(digits.decay.m1[[2]], newdata = digits.test)
+m2.pred <- ggplot(as.data.frame(table(digits.pd2)), aes(x = digits.pd2, y = Freq)) +
+  geom_bar(stat = "identity") +
+  ggtitle("150 Iterations Model") +
+  scale_y_continuous(limits = c(0,5500), breaks = c(1000, 2000, 3000, 4000, 5000)) + 
+  theme_minimal()
+
+m1.pred / m2.pred
 
 
