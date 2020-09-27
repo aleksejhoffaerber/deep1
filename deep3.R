@@ -88,5 +88,93 @@ m2.pred <- ggplot(as.data.frame(table(digits.pd2)),
 
 m1.pred / m2.pred
 
+# DROPOUT POWERED DNN (no L1/L2 regularization)
+
+nn.models <- foreach(k = 1:4, .combine = "c") %dopar% {
+  set.seed(1234)
+    list(nn.train( # grid to train multiple models from "deepnet"
+      x = as.matrix(digits.x),
+      y = model.matrix(~ 0 + digits.y), # 0 to drop the intercept (that is believed to be a factor but isnt)
+      hidden = c(40, 80, 40, 80)[k],
+      activationfun = "tanh", 
+      learningrate = 0.8,
+      momentum = 0.5, # momentum for gradient descent, 0.5 is the standard
+      numepochs = 150, # number of iteration samples
+      output = "softmax", # outputs become normalized on 0 to 1 --> probabilities
+      hidden_dropout = c(0, 0, .5, .5)[k],
+      visible_dropout = c(0, 0, .2, .2)[k]
+    ))
+}
+
+nn.yhat <- lapply(nn.models, function(obj) {
+  encodeClassLabels(nn.predict(obj, as.matrix(digits.x))) # most DNN need data in matrix form
+})
+
+perf.train <- do.call(cbind, lapply(nn.yhat, function(yhat) {
+  caret::confusionMatrix(xtabs(~ I(yhat - 1) + digits.y))$overall # xtabs to create factor-based table
+}))
+
+colnames(perf.train) <- c("N40", "N80", "N40_Reg", "N80_Reg")
+options(digits = 4)
+perf.train
+
+# OOS performance
+
+i2 <- 5001:10000
+test.x <- digits.train[i2,-1]
+test.y <- digits.train[i2,1]
+
+nn.yhat.test <- lapply(nn.models, function(obj) {
+  encodeClassLabels(nn.predict(obj, as.matrix(test.x))) # most DNN need data in matrix form
+})
+
+perf.test <- do.call(cbind, lapply(nn.yhat.test, function(yhat) {
+  caret::confusionMatrix(xtabs(~ I(yhat - 1) + test.y))$overall # xtabs to create factor-based table
+}))
+
+colnames(perf.test) <- c("N40", "N80", "N40_Reg", "N80_Reg")
+options(digits = 4)
+perf.test
+
+# NORMAL TRAIN/TEST 
+
+split <- 0.7
+
+train <- digits.train %>% 
+  slice(1:as.integer(nrow(digits.train) * split))
+
+test <- digits.train %>% 
+  slice(
+    (as.integer(nrow(digits.train) * split)+1):(as.integer(nrow(digits.train+1))))
+
+train.x <- train[,-1]
+train.y <- train[,1]
+
+test.x <- test[,-1]
+test.y <- test[,1]
+
+sapply(list(train.x, train.y, test.x, test.y), dim) # check correctness
+
+
+
+nn.models.tr <- foreach(k = 1:4, .combine = "c") %dopar% {
+  set.seed(123)
+  list(nn.train(
+    x = as.matrix(train.x),
+    y = model.matrix(~ 0 + train.y),
+    hidden = c(40, 80, 40, 80)[k],
+    activationfun = "tanh",
+    learningrate = 0.8,
+    momentum = 0.5,
+    numepochs = 100,
+    output = "softmax", 
+    hidden_dropout = c(0,0,.5,.5)[k],
+    visible_dropout = c(0,0,.2,.2)[k]
+  ))
+}
+
+yhat.tr <- lapply(nn.models.tr, function(o) {
+  encodeClassLabels(nn.predict(o, as.matrix(test.x)))
+})
 
 
