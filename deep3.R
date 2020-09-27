@@ -101,7 +101,7 @@ nn.models <- foreach(k = 1:4, .combine = "c") %dopar% {
       momentum = 0.5, # momentum for gradient descent, 0.5 is the standard
       numepochs = 150, # number of iteration samples
       output = "softmax", # outputs become normalized on 0 to 1 --> probabilities
-      hidden_dropout = c(0, 0, .5, .5)[k], # output
+      hidden_dropout = c(0, 0, .5, .5)[k], # neurons
       visible_dropout = c(0, 0, .2, .2)[k] # input 
     ))
 }
