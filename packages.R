@@ -3,6 +3,7 @@ library(jsonlite)
 library(caret)
 library(e1071)
 library(dplyr)
+library(tidyr)
 library(readr)
 library(skimr)
 library(patchwork) # easy beside plots

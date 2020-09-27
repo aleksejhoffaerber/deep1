@@ -101,8 +101,8 @@ nn.models <- foreach(k = 1:4, .combine = "c") %dopar% {
       momentum = 0.5, # momentum for gradient descent, 0.5 is the standard
       numepochs = 150, # number of iteration samples
       output = "softmax", # outputs become normalized on 0 to 1 --> probabilities
-      hidden_dropout = c(0, 0, .5, .5)[k],
-      visible_dropout = c(0, 0, .2, .2)[k]
+      hidden_dropout = c(0, 0, .5, .5)[k], # output
+      visible_dropout = c(0, 0, .2, .2)[k] # input 
     ))
 }
 
@@ -166,7 +166,7 @@ nn.models.tr <- foreach(k = 1:4, .combine = "c") %dopar% {
     activationfun = "tanh",
     learningrate = 0.8,
     momentum = 0.5,
-    numepochs = 100,
+    numepochs = 150,
     output = "softmax", 
     hidden_dropout = c(0,0,.5,.5)[k],
     visible_dropout = c(0,0,.2,.2)[k]
@@ -186,5 +186,19 @@ perf.test.tr <- do.call(cbind, lapply(yhat.tr, function(u) # cbind because $over
 colnames(perf.test.tr) <- c("N40", "N80", "N40_Reg", "N80_Reg")
 perf.test.tr
 
+#  PLOT COMPARISON
 
+n_full <- rbind(perf.test[1,], perf.test.tr[1,]) %>% t() %>% as.data.frame() %>% mutate(model = row.names(.))
+colnames(n_full) <- c("11%", "70%", "model")
+n_full <- n_full %>% pivot_longer(cols = c("11%", "70%"))
+
+ggplot(n_full, aes(x = model, y = value, colour = name)) +
+  geom_jitter(position = position_dodge(0)) +
+  # facet_wrap(~name) +
+  theme_minimal() +
+  labs(title = "DNN Performance and Train Data Usage",
+       subtitle = "OOS performance increases with model complexity",
+       colour = "Train Data Usage") +
+  scale_y_continuous(limits = c(0.80,1),
+                     breaks = c(0.85, 0.9, 0.95))
 
