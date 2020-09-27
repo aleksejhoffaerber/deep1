@@ -177,4 +177,14 @@ yhat.tr <- lapply(nn.models.tr, function(o) {
   encodeClassLabels(nn.predict(o, as.matrix(test.x)))
 })
 
+perf.test.tr <- do.call(cbind, lapply(yhat.tr, function(u) # cbind because $overall will be a vector
+  {
+  caret::confusionMatrix(xtabs(~I(u - 1) + test.y))$overall # basic important statistics
+  }
+))
+
+colnames(perf.test.tr) <- c("N40", "N80", "N40_Reg", "N80_Reg")
+perf.test.tr
+
+
 
