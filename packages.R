@@ -4,6 +4,7 @@ library(caret)
 library(e1071)
 library(dplyr)
 library(tidyr)
+library(data.table)
 library(readr)
 library(skimr)
 library(patchwork) # easy beside plots
