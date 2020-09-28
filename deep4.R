@@ -128,16 +128,18 @@ m3 <- h2o.deeplearning(
 error3 <- as.data.frame(h2o.anomaly(m3, h2odigits.train))
 percentile3 <- quantile(error3$Reconstruction.MSE, probs = .99)
 
+# CREATE DF WITH DL RESULTS
+
 f3 <- as.data.frame(h2o.deepfeatures(m3, h2odigits.train, 2)) # 2nd layer
 f3$label <- digits.train$label[i]
-f4 <- melt(f3, id.vars = "label")
 
 
 colnames(f3) <- c(rep(1:10), "label")
 
+
 f3 %>% group_by(label) %>% 
   summarise_all(mean) %>% 
-  pivot_longer(c(2:11)) %>% 
+  pivot_longer(c(2:11)) %>% # long format for plotting
   as.data.frame() %>% 
   mutate(name = I(as.integer(name) -1)) -> f3c 
   # important to keep name otherwise no line possible 
@@ -145,11 +147,13 @@ f3 %>% group_by(label) %>%
 
 f3c %>% 
   ggplot(aes(x = name, y = value, 
-             col = label, linetype = label)) +
-  geom_line(lwd = 2) +
+             col = label, linetype = label)) + # line per label
+  geom_line(lwd = 1) +
   scale_x_continuous("Deep Features eq. to 2nd Hidden Layer", 
                      breaks = c(1:10), n.breaks = 10) +
   labs(title = "Probability Assignment",
        subtitle = "Despite structure, 2nd layer did not result in a clear classification seperation") +
   theme_minimal() +
   theme(legend.position = "bottom", legend.key.width = unit(1, "cm"))
+
+h2o.shutdown()
