@@ -78,7 +78,7 @@ p.resid <- ggplot(yhat, aes(factor(V1), predict - V1)) +
   labs(title = "Prediction Residuals",
        subtitle = "Model results indicate bad prediction fits in the first years, because of skewed data") +
   xlab("Year of Release") +
-  ylab("Predicted Year of Release")
+  ylab("Difference in Predicted Years of Release")
 
 print(p.resid)
 
