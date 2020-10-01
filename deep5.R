@@ -74,7 +74,7 @@ p.resid <- ggplot(yhat, aes(factor(V1), predict - V1)) +
                outlier.colour = "darkred",
                outlier.size = 1) +
   geom_hline(yintercept = 0) +
-  theme_classic() +
+  theme_minimal() +
   theme(axis.text.x = element_text(
     angle = 90, vjust = 1, hjust = 1)) +
   labs(title = "Prediction Residuals",
@@ -89,12 +89,14 @@ imp <- as.data.frame(h2o.varimp(m1))
 
 p.imp <- imp %>% 
   ggplot(aes(x = factor(variable, levels = variable), y = percentage)) +
-  geom_point() +
+  geom_point(color = "cornflowerblue") +
   geom_hline(yintercept=0.01) +
-  theme_classic() +
+  geom_hline(yintercept=0.02) +
+  theme_minimal() +
   theme(axis.text.x = element_text(
     angle = 90, vjust = 1, hjust = 1, size = 5)) +
-  labs(title = "Variable Importance") +
+  labs(title = "Variable Importance",
+       subtitle = "Clear importance distinction for first 11 predictors") +
   xlab("Variables") +
   ylab("Score")
 
