@@ -70,7 +70,9 @@ yhat <- as.data.frame(h2o.predict(m1, h2o.tr))
 yhat <- cbind(as.data.frame(h2o.tr[["V1"]]), yhat)
 
 p.resid <- ggplot(yhat, aes(factor(V1), predict - V1)) +
-  geom_boxplot() +
+  geom_boxplot(fill = "cornflowerblue",
+               outlier.colour = "darkred",
+               outlier.size = 1) +
   geom_hline(yintercept = 0) +
   theme_classic() +
   theme(axis.text.x = element_text(
