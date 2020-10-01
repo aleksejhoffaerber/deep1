@@ -95,4 +95,6 @@ p.imp <- imp %>%
   labs(title = "Variable Importance") +
   xlab("Variables") +
   ylab("Score")
+
+print(p.imp)
   
