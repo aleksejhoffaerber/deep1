@@ -15,7 +15,8 @@ Plot Overview
 3. Depth-Neuron Interaction
 ![](readme_files/figure-markdown_github/hyperparameter-interaction.png)
 
-Resulting Model:
+Resulting Model & Variable Importance
+---------------
 ```
 if (exists("model.optimized") == FALSE) {
   model.optimized <- h2o.deeplearning(
@@ -41,16 +42,12 @@ if (exists("model.optimized") == FALSE) {
 )
 }
 ```
-
-4. Variable Importance Analysis
 ![](readme_files/figure-markdown_github/variable-importance-users.png)
 
 Further Visualizations
 ---------------------
 
-5. Residual Prediction Analysis (movie dataset)
 ![](readme_files/figure-markdown_github/residual-predictions.png)
-6. DNN Architecture Classification (handwriting dataset)
-![](readme_files/figure-markdown_github/hand-writing-classification-1.png)
+
 
 
