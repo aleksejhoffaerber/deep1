@@ -4,6 +4,7 @@ library(caret)
 library(e1071)
 library(dplyr)
 library(tidyr)
+library(magrittr)
 library(data.table)
 library(readr)
 library(skimr)
@@ -19,8 +20,8 @@ library(neuralnet)    # only one hidden layer, advanced training possibs
 library(RSNNS)        # variety of NN models
 
 library(deepnet)      # DBN and RBM capabilities 
-# library(darch)        # same, but pure R code (slow)
 library(h2o)          # java-based, fast
 library(doSNOW)
 
 library(glmnet)
+library(mgcv)
