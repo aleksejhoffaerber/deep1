@@ -1,0 +1,433 @@
+---
+title: "Smartphone User Activities"
+author: "Aleksej Hoffärber"
+date: "10/1/2020"
+output:
+  md_document:
+    variant: markdown_github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+source("packages.R")
+options(width = 100, digits = 2)
+theme_set(theme_minimal())
+```
+
+## Goals and Procedure
+
+The aim of this short project was to get familiar with the DNN possibilities in R, especially while using caret, RSNSS, and h2o. Important emphasis was put on regularization, visualization, and variable importance techniques in order to make the results easily comprehensible. In terms of models, only basic DNN architectures were employed with a varying number and values of hyperparameters in order to find optimal models. 
+
+The main dataset to which most of the code and plots refer displays sensor data of smartphone users in order to predict their behavior. Other plots refer to a movie data set in order to visualize residual predictions.
+
+## Plot Overview
+
+1. Hyperparameter Tuning 
+2. GAM-based Hyperparameter Selection
+3. Variable Importance Analysis
+4. Residual Prediction Analysis (movie dataset)
+
+```{r hand-writing classification, echo=F, warning=F, results=F, message=F}
+d_train <- read.csv("data/train.csv") %>% 
+  mutate(label = as.factor(label))
+
+
+c2 <- h2o.init(max_mem_size = "20G", nthreads = 10)
+h2od <- as.h2o(d_train, # data upload
+                    destination_frame = "h2odigits")
+
+# training and test set
+i <- 1:20000
+h2od_train <- h2od[i,-1]
+
+it <- 20001:30000
+h2od_test <- h2od[it,-1]
+xnames <- colnames(h2od_train)
+
+# model tuning
+
+if (exists("m3") == FALSE) 
+{m3 <- h2o.deeplearning(
+  x = xnames,
+  training_frame = h2od_train,
+  validation_frame = h2od_test,
+  activation = "TanhWithDropout",
+  autoencoder = T,
+  hidden = c(100,10),
+  epochs = 30,
+  sparsity_beta = 0,
+  input_dropout_ratio = 0,
+  hidden_dropout_ratios = c(0,0),
+  l1 = 0,
+  l2 = 0
+)} 
+
+
+
+error3 <- as.data.frame(h2o.anomaly(m3, h2od_train))
+percentile3 <- quantile(error3$Reconstruction.MSE, probs = .99)
+
+# CREATE DF WITH DL RESULTS
+
+f3 <- as.data.frame(h2o.deepfeatures(m3, h2od_train, 2)) # 2nd layer
+f3$label <- d_train$label[i]
+
+
+colnames(f3) <- c(rep(1:10), "label")
+
+
+f3 %>% group_by(label) %>% 
+  summarise_all(mean) %>% 
+  pivot_longer(c(2:11)) %>% # long format for plotting
+  as.data.frame() %>% 
+  mutate(name = I(as.integer(name) -1)) -> f3c 
+  # important to keep name otherwise no line possible 
+
+
+layer <- 
+  f3c %>% 
+  ggplot(aes(x = name, y = value, 
+             col = label, linetype = label)) + # line per label
+  geom_line(lwd = 1) +
+  scale_x_continuous("Deep Features eq. to 2nd Hidden Layer", 
+                     breaks = c(1:10), n.breaks = 10) +
+  labs(title = "Probability Assignment",
+       subtitle = "Despite structure, 2nd layer did not result in a clear classification seperation") +
+  theme_minimal() +
+  theme(legend.position = "bottom", legend.key.width = unit(1, "cm"))
+
+print(layer)
+ggsave("readme_files/figure-markdown_github/hand-writing-classification-1.png")
+
+
+
+```
+
+```{r user activities, include=FALSE, echo=F, warning=F, results=F, message=F}
+# rm(list = ls())
+
+# data
+us_train.x <- read.table("data/UCI HAR Dataset/train/X_train.txt")
+us_train.y <- read.table("data/UCI HAR Dataset/train/y_train.txt")[[1]]
+
+us_test.x <- read.table("data/UCI HAR Dataset/test/X_test.txt")
+us_test.y <- read.table("data/UCI HAR Dataset/test/y_test.txt")[[1]]
+
+us_train <- cbind(us_train.x, Outcome = factor(us_train.y))
+us_test <- cbind(us_test.y, Outcome = factor(us_test.y))
+us_labels <- read.table("data/UCI HAR Dataset/activity_labels.txt")
+
+ # cluster
+c1 <- h2o.init(max_mem_size = "30G",
+               nthreads = 7)
+
+# random serach & performance check
+run <- function(seed, 
+                name = paste0("m_", seed), 
+                run = T) 
+  {
+  
+  set.seed(seed)
+
+  p <- list(
+    Name = name,
+    seed = seed,
+    depth = sample(1:5,1),
+    
+    l1 = runif(1, 0, .01),
+    l2 = runif(1, 0, .01),
+    
+    input_dropout = rbeta(1, 1, 12),
+    rho = runif(1, .9, .999),
+    epsilon = runif(1, 1e-10, 1e-8)
+  )
+
+  p$neurons <- sample(20:400, p$depth, replace =T)
+  p$hidden_dropout <- rbeta(p$depth, 1.5, 1)/2
+
+  if (run) {
+    model <- h2o.deeplearning(
+      x = colnames(us_train.x),
+      y = "Outcome",
+      training_frame = h2o.tr,
+      activation = "RectifierWithDropout",
+      hidden = p$neurons,
+      epochs = 100,
+      loss = "CrossEntropy",
+      input_dropout_ratio = p$input_dropout,
+      hidden_dropout_ratios = p$hidden_dropout,
+      l1 = p$l1,
+      l2 = p$l2,
+      rho = p$rho,
+      epsilon = p$epsilon,
+      
+      export_weights_and_biases = TRUE,
+
+      model_id = p$Name
+    )
+  
+    ## performance on training data
+    p$MSE <- h2o.mse(model)
+    p$R2 <- h2o.r2(model)
+    p$Logloss <- h2o.logloss(model)
+    p$CM <- h2o.confusionMatrix(model)
+    ## performance on testing data
+    perf <- h2o.performance(model, h2o.te)
+    p$T.MSE <- h2o.mse(perf)
+    p$T.R2 <- h2o.r2(perf)
+    p$T.Logloss <- h2o.logloss(perf)
+    p$T.CM <- h2o.confusionMatrix(perf)
+  
+    } 
+    else 
+      {
+       model <- NULL
+  
+      }
+    return(list(
+      Params = p,
+      Model = model))
+}
+
+h2o.tr <- as.h2o(
+  us_train,
+  destination_frame = "h2o.tr")
+
+h2o.te <- as.h2o(
+  us_test,
+  destination_frame = "h2o.te")
+
+# specifiying seeds
+us.seeds <- c(403L, 10L, 329737957L, -753102721L, 1148078598L, -1945176688L,
+               -1395587021L, -1662228527L, 367521152L, 217718878L, 1370247081L,
+               571790939L, -2065569174L, 1584125708L, 1987682639L, 818264581L,
+               1748945084L, 264331666L, 1408989837L, 2010310855L, 1080941998L,
+               1107560456L, -1697965045L, 1540094185L, 1807685560L, 2015326310L,
+               -1685044991L, 1348376467L, -1013192638L, -757809164L, 1815878135L,
+               -1183855123L, -91578748L, -1942404950L, -846262763L, -497569105L,
+               -1489909578L, 1992656608L, -778110429L, -313088703L, -758818768L,
+               -696909234L, 673359545L, 1084007115L, -1140731014L, -877493636L,
+               -1319881025L, 3030933L, -154241108L, -1831664254L)
+
+if (exists("model.res") == FALSE) 
+  {model.res <- lapply(us.seeds, run)} 
+
+
+# validation
+model.res.dat <- do.call(rbind, lapply(model.res, function(x)
+with(x$Params,
+     data.frame(l1 = l1, l2 = l2,
+                depth = depth, input_dropout = input_dropout,
+                SumNeurons = sum(neurons),
+                MeanHiddenDropout = mean(hidden_dropout),
+                rho = rho, 
+                epsilon = epsilon, 
+                MSE = T.MSE))))
+
+p.perf <- ggplot(melt(model.res.dat, id.vars = c("MSE")), aes(value, MSE)) +
+  geom_point() +
+  stat_smooth(color = "black") +
+  theme(text = element_text(size = 8))+
+  facet_wrap(~ variable, scales = "free_x", ncol = 2)
+
+print(p.perf)
+ggsave("readme_files/figure-markdown_github/hyperparameter-selection.png")
+
+
+```
+
+```{r GAM training, echo=FALSE, warning=F, results=F, message=F}
+
+# GAM training
+m.gam <- gam(MSE ~ s(l1, k = 4) +
+               s(l2, k = 4) +
+               s(input_dropout) +
+               s(rho, k = 4) +
+               s(epsilon, k = 4) +
+               s(MeanHiddenDropout, k = 4) +
+               te(depth, SumNeurons, k = 4),
+             data = model.res.dat)
+
+
+png(filename = "readme_files/figure-markdown_github/gam-hyperparameter-selection.png",
+    width = 1000, height = 880)
+
+par(mfrow = c(3, 2))
+
+for (i in 1:6) {
+  plot(m.gam, select = i)
+}
+
+dev.off()
+
+png(filename = "readme_files/figure-markdown_github/hyperparameter-interaction.png",
+    width = 1000, height = 880)
+
+par(mfrow = c(1,1))
+plot(m.gam, select = 7)
+dev.off()
+```
+
+```{r optimized model, warning=F, results=F, message=F}
+
+if (exists("model.optimized") == FALSE) {
+  model.optimized <- h2o.deeplearning(
+    x = colnames(us_train.x),
+    y = "Outcome",
+    training_frame = h2o.tr,
+    validation_frame = h2o.te,
+    activation = "RectifierWithDropout",
+    hidden = c(300, 300, 300),
+    epochs = 100,
+    loss = "CrossEntropy",
+    input_dropout_ratio = .08,
+    hidden_dropout_ratios = c(.50, .50, .50),
+    l1 = .002,
+    l2 = 0,
+    rho = .95,
+    epsilon = 1e-10,
+    
+    diagnostics = TRUE,
+    export_weights_and_biases = TRUE,
+    variable_importances = TRUE,
+    model_id = "optimized_model"
+)
+}
+```
+
+```{r variable importance optimized model, echo=FALSE, warning=F, results=F, message=F}
+
+h2o.performance(model.optimized)
+
+model.res.dat[which.min(model.res.dat$MSE), ]
+
+imp2 <- as.data.frame(h2o.varimp(model.optimized))
+
+pr.imp <- imp2 %>% arrange(desc(percentage)) %>% slice(1:50) %>% 
+  ggplot(aes(x = factor(variable, levels = variable), y = percentage)) +
+  geom_point(color = "cornflowerblue") +
+  geom_hline(yintercept=0.01) +
+  geom_hline(yintercept=0.02) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(
+    angle = 90, vjust = 1, hjust = 1, size = 5)) +
+  labs(title = "Variable Importance",
+       subtitle = "Clear importance distinction for first 17 predictors") +
+  xlab("Variables") +
+  ylab("Score")
+
+print(pr.imp)
+ggsave("readme_files/figure-markdown_github/variable-importance-users.png")
+
+
+```
+
+
+```{r movies, echo=FALSE, warning=F, results=F, message=F}
+c1 <- h2o.init(max_mem_size = "14G",
+               nthreads = 6)
+
+
+# NEW DATA:
+# unzip("YearPredictionMSD.txt.zip")
+
+d <- fread("YearPredictionMSD.txt", sep = ",") # speedup
+
+ggplot(d[,.(V1)], aes(V1)) +
+  geom_histogram(binwidth = 1) +
+  xlab("Year of Release")
+
+d %>% 
+  group_by(V1) %>% 
+  add_count() %>% 
+  summarise(mean = mean(n)) -> da
+
+# Cleaning for "out of quantile" observations
+d %<>% filter(V1 >= quantile(d$V1, probs = c(0.005, 0.995))[1] &
+                V1 <= quantile(d$V1, probs = c(0.005, 0.995))[2]) 
+
+
+# Test/train
+split <- 0.9
+
+dtr <- d %>% slice(1:(as.integer(nrow(d)) * split))
+dte <- d %>% slice((as.integer(nrow(d) * split + 1)):(as.integer(nrow(d) + 1)))
+
+# h2o clustering
+h2o.tr <- as.h2o(dtr, destination_frame = "h2o.tr")
+h2o.te <- as.h2o(dte, destination_frame = "h2o.te")
+
+# model fitting
+summary(m0 <- lm(V1 ~., data = dtr)) # 24% in variance
+cor(dte$V1,
+    predict(m0, newdata = dte))^2 # 23% variance in test set
+
+if (exists("m1") == FALSE) {
+  m1 <- h2o.deeplearning(
+    x = colnames(d)[-1],
+    y = "V1",
+    training_frame= h2o.tr,
+    validation_frame = h2o.te, # for instant test performance output
+    activation = "RectifierWithDropout",
+    hidden = c(50),
+    epochs = 100,
+    input_dropout_ratio = 0,
+    hidden_dropout_ratios = c(0),
+    score_training_samples = 0,
+    score_validation_samples = 0, # performance scoring on full data set
+    diagnostics = TRUE,
+    export_weights_and_biases = TRUE,
+    variable_importances = TRUE
+)
+}
+
+# h2o.saveModel(
+#   object = m1,
+#   path = paste0(getwd(),"\\m1"),
+#   force = T)
+
+# residuals
+yhat <- as.data.frame(h2o.predict(m1, h2o.tr))
+yhat <- cbind(as.data.frame(h2o.tr[["V1"]]), yhat)
+
+
+p.resid <- ggplot(yhat, aes(factor(V1), predict - V1)) +
+  geom_boxplot(fill = "cornflowerblue",
+               outlier.colour = "darkred",
+               outlier.size = 1) +
+  geom_hline(yintercept = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(
+    angle = 90, vjust = 1, hjust = 1)) +
+  labs(title = "Prediction Residuals",
+       subtitle = "Model results indicate bad prediction fits in the first years, because of skewed data") +
+  xlab("Year of Release") +
+  ylab("Difference in Predicted Years of Release")
+
+print(p.resid)
+ggsave("readme_files/figure-markdown_github/residual-predictions.png")
+
+
+# variable importance
+imp <- as.data.frame(h2o.varimp(m1))
+
+p.imp <- imp %>% 
+  ggplot(aes(x = factor(variable, levels = variable), y = percentage)) +
+  geom_point(color = "cornflowerblue") +
+  geom_hline(yintercept=0.01) +
+  geom_hline(yintercept=0.02) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(
+    angle = 90, vjust = 1, hjust = 1, size = 5)) +
+  labs(title = "Variable Importance",
+       subtitle = "Clear importance distinction for first 11 predictors") +
+  xlab("Variables") +
+  ylab("Score")
+
+print(p.imp)
+ggsave("readme_files/figure-markdown_github/variable-importance-movies.png")
+
+
+```
+
