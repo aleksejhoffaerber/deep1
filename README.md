@@ -13,3 +13,4 @@ Plot Overview
 3. Variable Importance Analysis
 4. Residual Prediction Analysis (movie dataset)
 
+![](readme_files/figure-markdown_github/hand-writing classification-1.png)
