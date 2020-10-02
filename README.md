@@ -9,14 +9,17 @@ Plot Overview
 -------------
 
 1. Hyperparameter Tuning 
-2. GAM-based Hyperparameter Selection
-3. Variable Importance Analysis
+![](readme_files/figure-markdown_github/hyperparameter-selection.png)
+2. GAM-based Hyperparameter Interaction
+![](readme_files/figure-markdown_github/gam-hyperparameter-selection.png)
+3. Depth-Neuron Interaction
+![](readme_files/figure-markdown_github/hyperparameter-interaction.png)
+4. Variable Importance Analysis
+![](readme_files/figure-markdown_github/variable-importance-users.png)
 
-4. Residual Prediction Analysis (movie dataset)
-5. Variable Importance Analysis (movie dataset)
+5. Residual Prediction Analysis (movie dataset)
+![](readme_files/figure-markdown_github/residual-predictions.png)
 6. DNN Architecture Classification (handwriting dataset)
+![](readme_files/figure-markdown_github/hand-writing-classification-1.png)
 
 
-![Residual Prediction Analysis](readme_files/figure-markdown_github/residual-predictions.png)
-![Variable Importance Analysis](readme_files/figure-markdown_github/variable-importance-movies.png)
-![DNN Architecture Classification](readme_files/figure-markdown_github/hand-writing-classification-1.png)
